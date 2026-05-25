@@ -1,3 +1,5 @@
+name: Build BetterSpades Win Mac Linux
+
 on:
   workflow_dispatch:
 
@@ -21,9 +23,6 @@ jobs:
       - name: Checkout your fork
         uses: actions/checkout@v4
 
-      # NOTE: BetterSpades upstream lives at xtreme8000/BetterSpades and its
-      # active branch is `standalone` (NOT `main`). If your fork tracks a
-      # different branch, change `upstream/standalone` below to match.
       - name: Sync upstream BetterSpades
         run: |
           git remote add upstream https://github.com/xtreme8000/BetterSpades.git || true
@@ -101,10 +100,7 @@ jobs:
           cd build
           zip -r "BetterSpades Linux.zip" BetterSpades/
 
-      # --- MACOS ONLY BUILD STEPS (x86_64, targets macOS 11.0+) ---
-      # GLFW is built from source (BetterSpades uses GLFW, not SDL).
-      # All four libs are placed BOTH in a prefix (for find_package) AND in
-      # deps/ (BetterSpades' expected static-lib folder) to cover either path.
+      # --- MACOS ONLY BUILD STEPS ---
       - name: Cache source-built macOS deps
         if: matrix.platform == 'macos'
         uses: actions/cache@v4
@@ -133,7 +129,7 @@ jobs:
                   -DCMAKE_INSTALL_PREFIX=$DEPS_PREFIX \
                   -DCMAKE_POLICY_VERSION_MINIMUM=3.5"
 
-          # GLFW (static) -- the windowing lib BetterSpades links as target `glfw`
+          # GLFW (static)
           if [ ! -f "$DEPS_PREFIX/lib/libglfw3.a" ]; then
             curl -L -o glfw.zip https://github.com/glfw/glfw/releases/download/3.4/glfw-3.4.zip
             unzip -q glfw.zip
@@ -157,7 +153,7 @@ jobs:
           fi
           cp "$DEPS_PREFIX/lib/libGLEW.a" "$DEPS_DIR/" || true
 
-          # enet (static) -- consumed via Findenet -> enet::enet
+          # enet (static)
           if [ ! -f "$DEPS_PREFIX/lib/libenet.a" ]; then
             curl -L -o enet.tar.gz https://github.com/lsalzman/enet/archive/refs/tags/v1.3.18.tar.gz
             tar xzf enet.tar.gz
@@ -168,7 +164,7 @@ jobs:
           fi
           cp "$DEPS_PREFIX/lib/libenet.a" "$DEPS_DIR/" || true
 
-          # libdeflate (static) -- consumed via Finddeflate -> deflate::deflate
+          # libdeflate (static)
           if [ ! -f "$DEPS_PREFIX/lib/libdeflate.a" ]; then
             curl -L -o libdeflate.tar.gz https://github.com/ebiggers/libdeflate/archive/refs/tags/v1.19.tar.gz
             tar xzf libdeflate.tar.gz
@@ -196,6 +192,7 @@ jobs:
                 -DCMAKE_OSX_ARCHITECTURES=x86_64 \
                 -DCMAKE_PREFIX_PATH="$GITHUB_WORKSPACE/deps-prefix" \
                 -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+                -DCMAKE_EXE_LINKER_FLAGS="-framework Cocoa -framework CoreFoundation -framework IOKit -framework CoreVideo -framework CoreGraphics -framework OpenGL" \
                 ..
           make -j$(sysctl -n hw.logicalcpu)
 
